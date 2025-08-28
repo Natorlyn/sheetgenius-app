@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export async function POST(request: NextRequest) {
   try {
-    // Move the OpenAI instantiation inside the handler
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
     const { prompt } = await request.json();
 
     if (!prompt) {
@@ -34,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     const response = completion.choices[0]?.message?.content || '';
     
+    // Extract formula and explanation
     const lines = response.split('\n');
     const formula = lines.find(line => line.startsWith('=')) || lines[0];
     const explanation = lines.filter(line => !line.startsWith('=')).join(' ').trim() || 'Formula generated successfully.';
