@@ -3,7 +3,16 @@ import OpenAI from 'openai';
 
 export async function POST(request: NextRequest) {
   try {
-    // Move OpenAI instantiation here - inside the function
+    // Debug logging
+    console.log('Environment variables check:');
+    console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+    console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length || 0);
+    console.log('Available env vars:', Object.keys(process.env).filter(key => key.includes('OPENAI')));
+
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ error: 'API key not found in environment' }, { status: 500 });
+    }
+
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -44,7 +53,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error generating formula:', error);
+    console.error('Error details:', error);
     return NextResponse.json(
       { error: 'Failed to generate formula' },
       { status: 500 }
