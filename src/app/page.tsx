@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Brain, AlertCircle, TrendingUp, ChevronRight, Copy, Mail, Lock } from 'lucide-react';
+import { FileSpreadsheet, Brain, Copy, Mail, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -47,7 +47,7 @@ export default function Home() {
   }, []);
 
   const fetchUserProfile = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -169,7 +169,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
               <span className="text-indigo-600">Excel Formulas</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8">
-              AI that turns "calculate growth %" into =(B2-A2)/A2*100 instantly. 
+              AI that turns &quot;calculate growth %&quot; into =(B2-A2)/A2*100 instantly. 
               Save 4+ hours per week on spreadsheet work.
             </p>
             
@@ -253,7 +253,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
             <div className="mt-6 text-center text-sm text-gray-600">
               {authMode === 'signin' ? (
                 <>
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <button
                     onClick={() => setAuthMode('signup')}
                     className="text-indigo-600 hover:text-indigo-700 font-medium"
@@ -350,7 +350,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, onSignOut }) => {
           explanation: 'Please try again or rephrase your request.'
         });
       }
-    } catch (error) {
+    } catch {
       setResult({
         formula: 'Network error',
         explanation: 'Please check your connection and try again.'
@@ -642,11 +642,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, onSignOut }) => {
               <h3 className="text-lg font-bold text-gray-900 mb-4">💬 What Users Say</h3>
               <div className="space-y-4">
                 <div className="border-l-4 border-green-500 pl-4">
-                  <p className="text-sm text-gray-700 italic">"Saved me 4 hours this week alone!"</p>
+                  <p className="text-sm text-gray-700 italic">&quot;Saved me 4 hours this week alone!&quot;</p>
                   <p className="text-xs text-gray-500 mt-1">- Sarah, Finance Manager</p>
                 </div>
                 <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="text-sm text-gray-700 italic">"Like having an Excel expert on speed dial"</p>
+                  <p className="text-sm text-gray-700 italic">&quot;Like having an Excel expert on speed dial&quot;</p>
                   <p className="text-xs text-gray-500 mt-1">- Mike, Operations Director</p>
                 </div>
               </div>
