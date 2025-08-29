@@ -1,11 +1,14 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Brain, AlertCircle, TrendingUp, ChevronRight, Copy } from 'lucide-react';
+import { FileSpreadsheet, Brain, AlertCircle, TrendingUp, ChevronRight, Copy, Mail, Lock } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
-interface User {
+interface UserProfile {
+  id: string;
   email: string;
   plan: string;
-  usage: number;
+  usage_count: number;
 }
 
 interface FormulaResult {
@@ -15,17 +18,48 @@ interface FormulaResult {
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
   useEffect(() => {
-    setTimeout(() => {
-      setUser({ email: 'demo@example.com', plan: 'free', usage: 2 });
+    // Check active sessions and sets the user
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
       setLoading(false);
-    }, 1000);
+    });
+
+    // Listen for changes on auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = () => {
-    setUser({ email: 'demo@example.com', plan: 'free', usage: 2 });
+  const fetchUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (data) {
+      setProfile(data);
+    }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
   };
 
   if (loading) {
@@ -37,17 +71,53 @@ export default function Home() {
   }
 
   if (!user) {
-    return <LandingPage onSignIn={signIn} />;
+    return <AuthPage authMode={authMode} setAuthMode={setAuthMode} />;
   }
 
-  return <Dashboard user={user} />;
+  return <Dashboard user={user} profile={profile} onSignOut={signOut} />;
 }
 
-interface LandingPageProps {
-  onSignIn: () => void;
+interface AuthPageProps {
+  authMode: 'signin' | 'signup';
+  setAuthMode: (mode: 'signin' | 'signup') => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    if (authMode === 'signup') {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}`,
+        },
+      });
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMessage('Check your email for the confirmation link!');
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setMessage(error.message);
+      }
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
@@ -58,247 +128,158 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
               <FileSpreadsheet className="h-8 w-8 text-indigo-600" />
               <span className="text-xl font-bold text-gray-900">SheetGenius</span>
             </div>
-            <button
-              onClick={onSignIn}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-            >
-              Try Free Now
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setAuthMode('signin')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  authMode === 'signin'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setAuthMode('signup')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  authMode === 'signup'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero + Auth Form */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center">
-          <div className="mb-6">
-            <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-              🚀 Powered by GPT-4 AI
-            </span>
-          </div>
-          <h1 className="text-6xl font-bold text-gray-900 mb-6">
-            Stop Googling<br />
-            <span className="text-indigo-600">Excel Formulas</span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            AI that turns <span className="font-semibold">&quot;calculate growth %&quot;</span> into 
-            <span className="font-mono bg-gray-100 px-2 py-1 rounded mx-1">=(B2-A2)/A2*100</span> 
-            instantly. Save 4+ hours per week on spreadsheet work.
-          </p>
-          
-          {/* Social Proof */}
-          <div className="flex justify-center items-center space-x-8 mb-8 text-sm text-gray-500">
-            <div className="flex items-center space-x-1">
-              <span className="text-2xl">⚡</span>
-              <span>5-second formulas</span>
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Hero Content */}
+          <div>
+            <div className="mb-6">
+              <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                Powered by GPT-4 AI
+              </span>
             </div>
-            <div className="flex items-center space-x-1">
-              <span className="text-2xl">🎯</span>
-              <span>95% accuracy rate</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="text-2xl">💼</span>
-              <span>Trusted by professionals</span>
-            </div>
-          </div>
-
-          <button
-            onClick={onSignIn}
-            className="bg-indigo-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center space-x-2 mx-auto shadow-lg"
-          >
-            <span>Generate Your First Formula Free</span>
-            <ChevronRight className="h-5 w-5" />
-          </button>
-          
-          <p className="text-sm text-gray-500 mt-3">
-            3 free formulas • No credit card required • 30-second setup
-          </p>
-        </div>
-
-        {/* Before/After Comparison */}
-        <div className="mt-20 max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Before vs. After SheetGenius</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Before */}
-            <div className="bg-red-50 border border-red-200 rounded-xl p-8">
-              <h3 className="text-xl font-semibold mb-4 text-red-800">😤 The Old Way (Painful)</h3>
-              <ul className="space-y-3 text-red-700">
-                <li className="flex items-start space-x-2">
-                  <span className="text-red-500 mt-1">❌</span>
-                  <span>Google &quot;VLOOKUP syntax&quot; for the 100th time</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-red-500 mt-1">❌</span>
-                  <span>Spend 30+ minutes debugging #REF! errors</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-red-500 mt-1">❌</span>
-                  <span>Ask colleagues for help with &quot;simple&quot; formulas</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-red-500 mt-1">❌</span>
-                  <span>Waste 4+ hours per week on formula work</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* After */}
-            <div className="bg-green-50 border border-green-200 rounded-xl p-8">
-              <h3 className="text-xl font-semibold mb-4 text-green-800">😎 The SheetGenius Way (Effortless)</h3>
-              <ul className="space-y-3 text-green-700">
-                <li className="flex items-start space-x-2">
-                  <span className="text-green-500 mt-1">✅</span>
-                  <span>Type &quot;find customer email&quot; → get exact VLOOKUP</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-green-500 mt-1">✅</span>
-                  <span>AI explains what each formula does</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-green-500 mt-1">✅</span>
-                  <span>Works in Google Sheets via Chrome extension</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-green-500 mt-1">✅</span>
-                  <span>Save 4+ hours per week, focus on insights</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="mt-20 grid md:grid-cols-3 gap-8">
-          <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <Brain className="h-12 w-12 text-indigo-600 mb-4" />
-            <h3 className="text-xl font-semibold mb-4">AI Formula Generator</h3>
-            <p className="text-gray-600">Powered by GPT-4. Understands context and generates perfect formulas from plain English descriptions.</p>
-          </div>
-          <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <AlertCircle className="h-12 w-12 text-green-600 mb-4" />
-            <h3 className="text-xl font-semibold mb-4">Smart Debugger</h3>
-            <p className="text-gray-600">Paste broken formulas and get instant fixes with clear explanations of what went wrong.</p>
-          </div>
-          <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <TrendingUp className="h-12 w-12 text-purple-600 mb-4" />
-            <h3 className="text-xl font-semibold mb-4">Chrome Extension</h3>
-            <p className="text-gray-600">Works directly inside Google Sheets. No switching tabs, no copy-paste hassle.</p>
-          </div>
-        </div>
-
-        {/* Pricing */}
-        <div className="mt-20">
-          <h2 className="text-3xl font-bold text-center mb-4">Simple, Transparent Pricing</h2>
-          <p className="text-center text-gray-600 mb-12">Start free, upgrade when you see the value</p>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free */}
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">Free Trial</h3>
-                <div className="text-3xl font-bold mb-4">$0</div>
-                <ul className="text-left space-y-3 mb-6 text-gray-600">
-                  <li className="flex items-center space-x-2">
-                    <span className="text-green-500">✓</span>
-                    <span>3 AI formula generations</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-green-500">✓</span>
-                    <span>See how the AI works</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-green-500">✓</span>
-                    <span>No credit card required</span>
-                  </li>
-                </ul>
-                <button 
-                  onClick={onSignIn}
-                  className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Try Free Now
-                </button>
-              </div>
-            </div>
-
-            {/* Starter */}
-            <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">Starter</h3>
-                <div className="text-3xl font-bold mb-4">
-                  $9.99<span className="text-lg text-gray-500">/month</span>
-                </div>
-                <ul className="text-left space-y-3 mb-6 text-gray-600">
-                  <li className="flex items-center space-x-2">
-                    <span className="text-green-500">✓</span>
-                    <span>25 formulas per month</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Perfect for freelancers</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Email support</span>
-                  </li>
-                </ul>
-                <button className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors">
-                  Start Free Trial
-                </button>
-              </div>
-            </div>
-
-            {/* Pro */}
-            <div className="bg-indigo-600 text-white rounded-xl p-8 shadow-lg relative">
-              <div className="absolute -top-3 -right-3 bg-yellow-400 text-black px-3 py-1 rounded-full text-sm font-semibold">
-                Most Popular
-              </div>
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">Pro</h3>
-                <div className="text-3xl font-bold mb-4">
-                  $19.99<span className="text-lg opacity-80">/month</span>
-                </div>
-                <ul className="text-left space-y-3 mb-6">
-                  <li className="flex items-center space-x-2">
-                    <span className="text-white">✓</span>
-                    <span>Unlimited formulas</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-white">✓</span>
-                    <span>Chrome extension</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-white">✓</span>
-                    <span>Priority support</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="text-white">✓</span>
-                    <span>Advanced features</span>
-                  </li>
-                </ul>
-                <button className="w-full bg-white text-indigo-600 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
-                  Start Pro Trial
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center mt-8">
-            <p className="text-gray-500 text-sm">
-              💡 Compare: Excel consultants charge $75/hour. SheetGenius saves you money AND time.
+            <h1 className="text-5xl font-bold text-gray-900 mb-6">
+              Stop Googling<br />
+              <span className="text-indigo-600">Excel Formulas</span>
+            </h1>
+            <p className="text-xl text-gray-600 mb-8">
+              AI that turns "calculate growth %" into =(B2-A2)/A2*100 instantly. 
+              Save 4+ hours per week on spreadsheet work.
             </p>
+            
+            <div className="flex items-center space-x-8 text-sm text-gray-500">
+              <div className="flex items-center space-x-1">
+                <span className="text-2xl">⚡</span>
+                <span>5-second formulas</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="text-2xl">🎯</span>
+                <span>95% accuracy rate</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="text-2xl">💼</span>
+                <span>Trusted by professionals</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* CTA Section */}
-        <div className="mt-20 bg-indigo-600 rounded-2xl p-12 text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">Ready to Stop Wasting Time on Formulas?</h2>
-          <p className="text-xl mb-8 opacity-90">Join professionals who save 4+ hours per week with AI-powered spreadsheets</p>
-          <button
-            onClick={onSignIn}
-            className="bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg"
-          >
-            Get Started Free - No Credit Card Required
-          </button>
+          {/* Auth Form */}
+          <div className="bg-white rounded-xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              {authMode === 'signin' ? 'Welcome Back' : 'Get Started Free'}
+            </h2>
+            
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="your@email.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              {message && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  message.includes('Check your email') 
+                    ? 'bg-green-50 text-green-800' 
+                    : 'bg-red-50 text-red-800'
+                }`}>
+                  {message}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Loading...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center text-sm text-gray-600">
+              {authMode === 'signin' ? (
+                <>
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => setAuthMode('signup')}
+                    className="text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Sign up free
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button
+                    onClick={() => setAuthMode('signin')}
+                    className="text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </div>
+
+            {authMode === 'signup' && (
+              <div className="mt-4 text-xs text-gray-500 text-center">
+                By creating an account, you agree to our Terms of Service and Privacy Policy.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -307,15 +288,40 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
 
 interface DashboardProps {
   user: User;
+  profile: UserProfile | null;
+  onSignOut: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, profile, onSignOut }) => {
   const [prompt, setPrompt] = useState<string>('');
   const [result, setResult] = useState<FormulaResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const updateUsageCount = async () => {
+    if (!profile) return;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ usage_count: profile.usage_count + 1 })
+      .eq('id', profile.id);
+
+    if (!error) {
+      // Refresh profile data
+      window.location.reload();
+    }
+  };
+
   const generateFormula = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || !profile) return;
+    
+    // Check usage limit
+    if (profile.plan === 'free' && profile.usage_count >= 3) {
+      setResult({
+        formula: 'Usage Limit Reached',
+        explanation: 'You have used all 3 free queries. Upgrade to Pro for unlimited access.'
+      });
+      return;
+    }
     
     setLoading(true);
     
@@ -335,6 +341,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           formula: data.formula,
           explanation: data.explanation
         });
+        
+        // Update usage count in database
+        await updateUsageCount();
       } else {
         setResult({
           formula: 'Error generating formula',
@@ -354,6 +363,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
   };
+
+  const usageCount = profile?.usage_count || 0;
+  const usageLimit = profile?.plan === 'free' ? 3 : 999;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
@@ -376,11 +388,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div className="flex items-center space-x-4">
               <div className="text-sm bg-gray-100 px-3 py-1 rounded-full">
                 <span className="text-gray-600">Usage: </span>
-                <span className="font-semibold text-indigo-600">{user.usage}/3</span>
-                <span className="text-gray-500"> free queries</span>
+                <span className="font-semibold text-indigo-600">{usageCount}/{usageLimit}</span>
+                <span className="text-gray-500"> queries</span>
               </div>
-              <button className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md">
-                ⚡ Upgrade to Pro - $19.99
+              <div className="text-sm text-gray-600">
+                {user.email}
+              </div>
+              <button 
+                onClick={onSignOut}
+                className="text-gray-600 hover:text-gray-900 text-sm"
+              >
+                Sign Out
               </button>
             </div>
           </div>
@@ -394,7 +412,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Formulas Generated</p>
-                <p className="text-2xl font-bold text-gray-900">2</p>
+                <p className="text-2xl font-bold text-gray-900">{usageCount}</p>
               </div>
               <Brain className="h-8 w-8 text-indigo-600" />
             </div>
@@ -404,7 +422,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Time Saved</p>
-                <p className="text-2xl font-bold text-green-600">12min</p>
+                <p className="text-2xl font-bold text-green-600">{usageCount * 6}min</p>
               </div>
               <div className="text-2xl">⚡</div>
             </div>
@@ -424,7 +442,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Money Saved</p>
-                <p className="text-2xl font-bold text-green-600">$45</p>
+                <p className="text-2xl font-bold text-green-600">${usageCount * 15}</p>
               </div>
               <div className="text-2xl">💰</div>
             </div>
@@ -444,7 +462,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">
-                      ✨ What do you want to calculate?
+                      What do you want to calculate?
                     </label>
                     <textarea
                       value={prompt}
@@ -457,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
                   <button
                     onClick={generateFormula}
-                    disabled={loading || !prompt.trim()}
+                    disabled={loading || !prompt.trim() || (profile?.plan === 'free' && usageCount >= 3)}
                     className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-3 font-semibold text-lg shadow-lg"
                   >
                     {loading ? (
@@ -465,6 +483,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                         <span>AI is thinking...</span>
                       </>
+                    ) : profile?.plan === 'free' && usageCount >= 3 ? (
+                      <span>Upgrade for More Queries</span>
                     ) : (
                       <>
                         <Brain className="h-6 w-6" />
@@ -480,14 +500,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             {/* Premium Result Display */}
             {result && (
               <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-green-500 to-blue-600 p-4 text-white">
+                <div className={`p-4 text-white ${
+                  result.formula.includes('Usage Limit') || result.formula.includes('Error') || result.formula.includes('Network')
+                    ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                    : 'bg-gradient-to-r from-green-500 to-blue-600'
+                }`}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold flex items-center space-x-2">
-                      <span>✨</span>
-                      <span>Formula Generated Successfully!</span>
+                      <span>{result.formula.includes('Usage Limit') ? '⚠️' : result.formula.includes('Error') || result.formula.includes('Network') ? '❌' : '✨'}</span>
+                      <span>
+                        {result.formula.includes('Usage Limit') ? 'Upgrade Required' :
+                         result.formula.includes('Error') || result.formula.includes('Network') ? 'Generation Failed' :
+                         'Formula Generated Successfully!'}
+                      </span>
                     </h3>
                     <div className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                      Query {user.usage}/3 • GPT-4 Powered
+                      Query {usageCount}/{usageLimit} • GPT-4 Powered
                     </div>
                   </div>
                 </div>
@@ -496,11 +524,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   {/* Formula Display */}
                   <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 border-2 border-blue-200">
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">Excel/Google Sheets Formula:</span>
-                      <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 font-medium">
-                        <Copy className="h-4 w-4" />
-                        <span>Copy Formula</span>
-                      </button>
+                      <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">
+                        {result.formula.includes('Usage Limit') ? 'Upgrade Message:' :
+                         result.formula.includes('Error') || result.formula.includes('Network') ? 'Error Message:' :
+                         'Excel/Google Sheets Formula:'}
+                      </span>
+                      {!result.formula.includes('Usage Limit') && !result.formula.includes('Error') && !result.formula.includes('Network') && (
+                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 font-medium">
+                          <Copy className="h-4 w-4" />
+                          <span>Copy Formula</span>
+                        </button>
+                      )}
                     </div>
                     <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
                       <code className="text-xl font-mono text-gray-900 font-bold">{result.formula}</code>
@@ -524,18 +558,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div className="flex items-center justify-between pt-4 border-t-2 border-gray-100">
                     <div className="flex items-center space-x-2 text-gray-600">
                       <span className="text-2xl">🚀</span>
-                      <span className="font-medium">Generated in under 3 seconds with 95% accuracy!</span>
+                      <span className="font-medium">Generated with 95% accuracy!</span>
                     </div>
                     <div className="flex space-x-3">
-                      <button 
-                        onClick={() => {setResult(null); setPrompt('');}}
-                        className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
-                      >
-                        Generate Another Formula
-                      </button>
-                      <button className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium">
-                        Get Unlimited Access
-                      </button>
+                      {!result.formula.includes('Usage Limit') && !result.formula.includes('Error') && !result.formula.includes('Network') && (
+                        <button 
+                          onClick={() => {setResult(null); setPrompt('');}}
+                          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                        >
+                          Generate Another Formula
+                        </button>
+                      )}
+                      {(profile?.plan === 'free') && (
+                        <button className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium">
+                          Get Unlimited Access
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -571,42 +609,44 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
 
             {/* Upgrade Prompt */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-              <h3 className="text-lg font-bold mb-3">⚡ Unlock Full Power</h3>
-              <div className="space-y-2 text-sm opacity-90 mb-4">
-                <div className="flex items-center space-x-2">
-                  <span>✓</span>
-                  <span>Unlimited AI formulas</span>
+            {profile?.plan === 'free' && (
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+                <h3 className="text-lg font-bold mb-3">⚡ Unlock Full Power</h3>
+                <div className="space-y-2 text-sm opacity-90 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Unlimited AI formulas</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Chrome extension</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Priority AI processing</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Advanced insights</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span>✓</span>
-                  <span>Chrome extension</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>✓</span>
-                  <span>Priority AI processing</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>✓</span>
-                  <span>Advanced insights</span>
-                </div>
+                <button className="w-full bg-white text-indigo-600 font-bold py-3 rounded-lg hover:bg-gray-100 transition-colors">
+                  Upgrade to Pro - $19.99/mo
+                </button>
+                <p className="text-xs text-center mt-2 opacity-75">vs $75/hour for Excel consultants</p>
               </div>
-              <button className="w-full bg-white text-indigo-600 font-bold py-3 rounded-lg hover:bg-gray-100 transition-colors">
-                Upgrade to Pro - $19.99/mo
-              </button>
-              <p className="text-xs text-center mt-2 opacity-75">vs $75/hour for Excel consultants</p>
-            </div>
+            )}
 
             {/* Social Proof */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">💬 What Users Say</h3>
               <div className="space-y-4">
                 <div className="border-l-4 border-green-500 pl-4">
-                  <p className="text-sm text-gray-700 italic">&quot;Saved me 4 hours this week alone!&quot;</p>
+                  <p className="text-sm text-gray-700 italic">"Saved me 4 hours this week alone!"</p>
                   <p className="text-xs text-gray-500 mt-1">- Sarah, Finance Manager</p>
                 </div>
                 <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="text-sm text-gray-700 italic">&quot;Like having an Excel expert on speed dial&quot;</p>
+                  <p className="text-sm text-gray-700 italic">"Like having an Excel expert on speed dial"</p>
                   <p className="text-xs text-gray-500 mt-1">- Mike, Operations Director</p>
                 </div>
               </div>
