@@ -32,9 +32,9 @@ export default function Home() {
 
       if (tokenHash && type) {
         const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: type as any,
-        });
+  token_hash: tokenHash,
+  type: type as 'signup' | 'recovery' | 'invite' | 'magiclink',
+});
 
         if (error) {
           console.error('Confirmation error:', error.message);
