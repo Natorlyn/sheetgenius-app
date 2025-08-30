@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, Brain, Copy, Mail, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getStripe } from '../lib/stripe';
 import type { User } from '@supabase/supabase-js';
 
 interface UserProfile {
@@ -15,6 +16,12 @@ interface FormulaResult {
   formula: string;
   explanation: string;
 }
+
+// Replace these with your actual Stripe price IDs from your Stripe dashboard
+const PRICE_IDS = {
+  STARTER: 'price_1S1nFPAapFDJirqA7iDcWR0r', // Replace with your actual starter price ID
+  PRO: 'price_1S1nGnAapFDJirqALvwsI4ns' // Replace with your actual pro price ID
+};
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
@@ -30,11 +37,11 @@ export default function Home() {
       const tokenHash = urlParams.get('token_hash');
       const type = urlParams.get('type');
 
-      if (tokenHash && type) {
+      if (tokenHash && type === 'signup') {
         const { error } = await supabase.auth.verifyOtp({
-  token_hash: tokenHash,
-  type: type as 'signup' | 'recovery' | 'invite' | 'magiclink',
-});
+          token_hash: tokenHash,
+          type: 'signup',
+        });
 
         if (error) {
           console.error('Confirmation error:', error.message);
@@ -322,6 +329,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
   const [result, setResult] = useState<FormulaResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const handleCheckout = async (priceId: string) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId,
+          userId: user.id,
+        }),
+      });
+
+      const { sessionId } = await response.json();
+      
+      const stripe = await getStripe();
+      if (stripe) {
+        await stripe.redirectToCheckout({ sessionId });
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+    }
+  };
+
   const updateUsageCount = async () => {
     if (!profile) return;
     
@@ -600,7 +633,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                         </button>
                       )}
                       {(profile?.plan === 'free') && (
-                        <button className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium">
+                        <button 
+                          onClick={() => handleCheckout(PRICE_IDS.PRO)}
+                          className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium"
+                        >
                           Get Unlimited Access
                         </button>
                       )}
@@ -654,7 +690,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                     <li>• Email support</li>
                     <li>• Perfect for light users</li>
                   </ul>
-                  <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                  <button 
+                    onClick={() => handleCheckout(PRICE_IDS.STARTER)}
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
                     Start with Starter
                   </button>
                 </div>
@@ -670,7 +709,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                     <li>• Priority support</li>
                     <li>• Chrome extension</li>
                   </ul>
-                  <button className="w-full bg-white text-indigo-600 font-bold py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <button 
+                    onClick={() => handleCheckout(PRICE_IDS.PRO)}
+                    className="w-full bg-white text-indigo-600 font-bold py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
                     Upgrade to Pro
                   </button>
                 </div>
