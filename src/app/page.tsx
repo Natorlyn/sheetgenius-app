@@ -74,7 +74,7 @@ export default function Home() {
     return <AuthPage authMode={authMode} setAuthMode={setAuthMode} />;
   }
 
-  return <Dashboard user={user} profile={profile} onSignOut={signOut} />;
+  return <Dashboard user={user} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
 }
 
 interface AuthPageProps {
@@ -289,10 +289,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
 interface DashboardProps {
   user: User;
   profile: UserProfile | null;
+  setProfile: (profile: UserProfile | null) => void;
   onSignOut: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, profile, onSignOut }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSignOut }) => {
   const [prompt, setPrompt] = useState<string>('');
   const [result, setResult] = useState<FormulaResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -300,14 +301,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, onSignOut }) => {
   const updateUsageCount = async () => {
     if (!profile) return;
     
+    const newUsageCount = profile.usage_count + 1;
+    
     const { error } = await supabase
       .from('profiles')
-      .update({ usage_count: profile.usage_count + 1 })
+      .update({ usage_count: newUsageCount })
       .eq('id', profile.id);
 
     if (!error) {
-      // Refresh profile data
-      window.location.reload();
+      // Update the profile state locally instead of reloading
+      setProfile({
+        ...profile,
+        usage_count: newUsageCount
+      });
     }
   };
 
