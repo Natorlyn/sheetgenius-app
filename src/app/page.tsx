@@ -23,6 +23,30 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
   useEffect(() => {
+    // Handle email confirmation on page load
+    const handleEmailConfirmation = async () => {
+      // Check if we have confirmation parameters in the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenHash = urlParams.get('token_hash');
+      const type = urlParams.get('type');
+
+      if (tokenHash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type as any,
+        });
+
+        if (error) {
+          console.error('Confirmation error:', error.message);
+        } else {
+          // Clear the URL parameters after successful confirmation
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+    };
+
+    handleEmailConfirmation();
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -615,45 +639,45 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
             </div>
 
             {/* Upgrade Prompt */}
-{profile?.plan === 'free' && (
-  <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-    <h3 className="text-lg font-bold mb-3">Choose Your Plan</h3>
-    
-    {/* Starter Plan */}
-    <div className="bg-white/10 rounded-lg p-4 mb-4">
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="font-semibold">Starter</h4>
-        <span className="text-lg font-bold">$9.99/mo</span>
-      </div>
-      <ul className="text-sm opacity-90 space-y-1 mb-3">
-        <li>• 25 formulas per month</li>
-        <li>• Email support</li>
-        <li>• Perfect for light users</li>
-      </ul>
-      <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-        Start with Starter
-      </button>
-    </div>
+            {profile?.plan === 'free' && (
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+                <h3 className="text-lg font-bold mb-3">Choose Your Plan</h3>
+                
+                {/* Starter Plan */}
+                <div className="bg-white/10 rounded-lg p-4 mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-semibold">Starter</h4>
+                    <span className="text-lg font-bold">$9.99/mo</span>
+                  </div>
+                  <ul className="text-sm opacity-90 space-y-1 mb-3">
+                    <li>• 25 formulas per month</li>
+                    <li>• Email support</li>
+                    <li>• Perfect for light users</li>
+                  </ul>
+                  <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Start with Starter
+                  </button>
+                </div>
 
-    {/* Pro Plan */}
-    <div className="bg-white/10 rounded-lg p-4">
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="font-semibold">Pro</h4>
-        <span className="text-lg font-bold">$19.99/mo</span>
-      </div>
-      <ul className="text-sm opacity-90 space-y-1 mb-3">
-        <li>• Unlimited formulas</li>
-        <li>• Priority support</li>
-        <li>• Chrome extension</li>
-      </ul>
-      <button className="w-full bg-white text-indigo-600 font-bold py-2 rounded-lg hover:bg-gray-100 transition-colors">
-        Upgrade to Pro
-      </button>
-    </div>
-    
-    <p className="text-xs text-center mt-3 opacity-75">vs $75/hour for Excel consultants</p>
-  </div>
-)}
+                {/* Pro Plan */}
+                <div className="bg-white/10 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-semibold">Pro</h4>
+                    <span className="text-lg font-bold">$19.99/mo</span>
+                  </div>
+                  <ul className="text-sm opacity-90 space-y-1 mb-3">
+                    <li>• Unlimited formulas</li>
+                    <li>• Priority support</li>
+                    <li>• Chrome extension</li>
+                  </ul>
+                  <button className="w-full bg-white text-indigo-600 font-bold py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    Upgrade to Pro
+                  </button>
+                </div>
+                
+                <p className="text-xs text-center mt-3 opacity-75">vs $75/hour for Excel consultants</p>
+              </div>
+            )}
 
             {/* Social Proof */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
