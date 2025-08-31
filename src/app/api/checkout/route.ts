@@ -13,11 +13,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const successUrl = 'https://sheetgenius-app-h2j6.vercel.app?payment=success';
-    const cancelUrl = 'https://sheetgenius-app-h2j6.vercel.app?payment=cancelled';
-
-    console.log('Creating checkout session with:', { successUrl, cancelUrl });
-
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -27,14 +22,13 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: 'https://sheetgenius-app.vercel.app?payment=success',
+      cancel_url: 'https://sheetgenius-app.vercel.app?payment=cancelled',
       metadata: {
         userId,
       },
     });
 
-    console.log('Session created:', session.id);
     return NextResponse.json({ sessionId: session.id });
   } catch (error) {
     console.error('Checkout error:', error);
