@@ -22,12 +22,11 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: 'https://sheetgenius-app-h2j6.vercel.app/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://sheetgenius-app-h2j6.vercel.app/cancelled',
+      success_url: 'https://sheetgenius-app-h2j6.vercel.app?payment=success',
+      cancel_url: 'https://sheetgenius-app-h2j6.vercel.app?payment=cancelled',
       metadata: {
         userId,
       },
-      allow_promotion_codes: true,
     });
 
     return NextResponse.json({ sessionId: session.id });
