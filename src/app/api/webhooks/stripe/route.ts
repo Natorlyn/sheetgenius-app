@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
 
   try {
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
-  } catch (err: any) {
-    console.log(`⚠️  Webhook signature verification failed.`, err.message);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.log(`⚠️  Webhook signature verification failed.`, errorMessage);
     return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });
   }
 
