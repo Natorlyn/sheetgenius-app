@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
   const headersList = await headers();
   const sig = headersList.get('stripe-signature');
 
-  // Check if webhook secret exists
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     console.log('❌ STRIPE_WEBHOOK_SECRET not configured');
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
@@ -40,6 +39,11 @@ export async function POST(request: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       await handleCheckoutSessionCompleted(session);
       break;
+
+    case 'customer.subscription.created':
+      const subscription = event.data.object as Stripe.Subscription;
+      await handleSubscriptionCreated(subscription);
+      break;
     
     default:
       console.log(`Unhandled event type: ${event.type}`);
@@ -49,11 +53,9 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  console.log('=== WEBHOOK DEBUG START ===');
+  console.log('=== CHECKOUT SESSION DEBUG START ===');
   console.log('Session ID:', session.id);
   console.log('Session metadata:', session.metadata);
-  console.log('Session customer:', session.customer);
-  console.log('Session subscription:', session.subscription);
   
   const userId = session.metadata?.userId;
   if (!userId) {
@@ -66,8 +68,43 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
+  const customerId = typeof session.customer === 'string' ? session.customer : null;
+  await updateUserPlan(session.subscription as string, userId, customerId);
+  console.log('=== CHECKOUT SESSION DEBUG END ===');
+}
+
+async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
+  console.log('=== SUBSCRIPTION CREATED DEBUG START ===');
+  console.log('Subscription ID:', subscription.id);
+  console.log('Subscription metadata:', subscription.metadata);
+  
+  // Get the checkout session to find the user ID
+  const sessions = await stripe.checkout.sessions.list({
+    subscription: subscription.id,
+    limit: 1
+  });
+
+  if (sessions.data.length === 0) {
+    console.log('❌ No checkout session found for subscription');
+    return;
+  }
+
+  const session = sessions.data[0];
+  const userId = session.metadata?.userId;
+  
+  if (!userId) {
+    console.log('❌ No userId found in session metadata');
+    return;
+  }
+
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : null;
+  await updateUserPlan(subscription.id, userId, customerId);
+  console.log('=== SUBSCRIPTION CREATED DEBUG END ===');
+}
+
+async function updateUserPlan(subscriptionId: string, userId: string, customerId: string | null) {
   try {
-    const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     const priceId = subscription.items.data[0]?.price.id;
     
     console.log('Retrieved price ID:', priceId);
@@ -91,8 +128,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       .from('profiles')
       .update({ 
         plan: planType,
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: session.subscription
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId
       })
       .eq('id', userId)
       .select();
@@ -105,9 +142,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       console.log('✅ Supabase update successful:', data);
     }
   } catch (error) {
-    console.log('❌ Webhook error:', error);
+    console.log('❌ Error updating user plan:', error);
   }
-  console.log('=== WEBHOOK DEBUG END ===');
 }
 
 export async function GET() {
