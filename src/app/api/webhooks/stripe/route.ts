@@ -124,13 +124,23 @@ async function updateUserPlan(subscriptionId: string, userId: string, customerId
 
     console.log(`Updating user ${userId} to ${planType} plan`);
 
+    // First, check if the user exists
+    const { data: existingUser, error: selectError } = await supabase
+      .from('profiles')
+      .select('id, email, plan')
+      .eq('id', userId);
+    
+    console.log('User lookup result:', { existingUser, selectError });
+
+    if (!existingUser || existingUser.length === 0) {
+      console.log('❌ User not found in database');
+      return;
+    }
+
+    // Try the update
     const { data, error } = await supabase
       .from('profiles')
-      .update({ 
-        plan: planType,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId
-      })
+      .update({ plan: planType })
       .eq('id', userId)
       .select();
 
@@ -138,8 +148,10 @@ async function updateUserPlan(subscriptionId: string, userId: string, customerId
     
     if (error) {
       console.log('❌ Supabase error:', error);
-    } else {
+    } else if (data && data.length > 0) {
       console.log('✅ Supabase update successful:', data);
+    } else {
+      console.log('❌ Update returned no rows - permission issue?');
     }
   } catch (error) {
     console.log('❌ Error updating user plan:', error);
