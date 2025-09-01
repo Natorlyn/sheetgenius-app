@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
-import { supabase } from '../../../../lib/supabase';
+import { supabaseAdmin } from '../../../../lib/supabase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -124,8 +124,8 @@ async function updateUserPlan(subscriptionId: string, userId: string, customerId
 
     console.log(`Updating user ${userId} to ${planType} plan`);
 
-    // First, check if the user exists
-    const { data: existingUser, error: selectError } = await supabase
+    // First, check if the user exists using admin client
+    const { data: existingUser, error: selectError } = await supabaseAdmin
       .from('profiles')
       .select('id, email, plan')
       .eq('id', userId);
@@ -137,8 +137,8 @@ async function updateUserPlan(subscriptionId: string, userId: string, customerId
       return;
     }
 
-    // Try the update
-    const { data, error } = await supabase
+    // Try the update using admin client
+    const { data, error } = await supabaseAdmin
       .from('profiles')
       .update({ plan: planType })
       .eq('id', userId)
@@ -151,7 +151,7 @@ async function updateUserPlan(subscriptionId: string, userId: string, customerId
     } else if (data && data.length > 0) {
       console.log('✅ Supabase update successful:', data);
     } else {
-      console.log('❌ Update returned no rows - permission issue?');
+      console.log('❌ Update returned no rows');
     }
   } catch (error) {
     console.log('❌ Error updating user plan:', error);
