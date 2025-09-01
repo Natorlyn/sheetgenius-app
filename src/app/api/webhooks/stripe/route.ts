@@ -49,7 +49,11 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  console.log('✅ Processing checkout session:', session.id);
+  console.log('=== WEBHOOK DEBUG START ===');
+  console.log('Session ID:', session.id);
+  console.log('Session metadata:', session.metadata);
+  console.log('Session customer:', session.customer);
+  console.log('Session subscription:', session.subscription);
   
   const userId = session.metadata?.userId;
   if (!userId) {
@@ -66,32 +70,44 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
     const priceId = subscription.items.data[0]?.price.id;
     
+    console.log('Retrieved price ID:', priceId);
+    console.log('STRIPE_STARTER_PRICE_ID:', process.env.STRIPE_STARTER_PRICE_ID);
+    console.log('STRIPE_PRO_PRICE_ID:', process.env.STRIPE_PRO_PRICE_ID);
+    
     let planType = 'free';
     if (priceId === process.env.STRIPE_STARTER_PRICE_ID) {
       planType = 'starter';
+      console.log('✅ Matched STARTER plan');
     } else if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
       planType = 'pro';
+      console.log('✅ Matched PRO plan');
+    } else {
+      console.log('❌ No plan match found');
     }
 
-    console.log(`Upgrading user ${userId} to ${planType} plan`);
+    console.log(`Updating user ${userId} to ${planType} plan`);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .update({ 
         plan: planType,
         stripe_customer_id: session.customer,
         stripe_subscription_id: session.subscription
       })
-      .eq('id', userId);
+      .eq('id', userId)
+      .select();
 
+    console.log('Supabase update result:', { data, error });
+    
     if (error) {
-      console.log('❌ Error updating user plan:', error);
+      console.log('❌ Supabase error:', error);
     } else {
-      console.log(`✅ Successfully upgraded user ${userId} to ${planType}`);
+      console.log('✅ Supabase update successful:', data);
     }
   } catch (error) {
-    console.log('❌ Error processing webhook:', error);
+    console.log('❌ Webhook error:', error);
   }
+  console.log('=== WEBHOOK DEBUG END ===');
 }
 
 export async function GET() {
