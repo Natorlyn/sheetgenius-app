@@ -377,11 +377,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
   const generateFormula = async () => {
     if (!prompt.trim() || !profile) return;
     
+    // Get the correct usage limit based on plan
+    const usageLimit = profile.plan === 'free' ? 3 : profile.plan === 'starter' ? 25 : 999;
+    
     // Check usage limit
-    if (profile.plan === 'free' && profile.usage_count >= 3) {
+    if (profile.usage_count >= usageLimit) {
       setResult({
         formula: 'Usage Limit Reached',
-        explanation: 'You have used all 3 free queries. Upgrade to Pro for unlimited access.'
+        explanation: `You have used all ${usageLimit} queries for your ${profile.plan} plan. Upgrade for more access.`
       });
       return;
     }
@@ -428,7 +431,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
   };
 
   const usageCount = profile?.usage_count || 0;
-  const usageLimit = profile?.plan === 'free' ? 3 : 999;
+  const usageLimit = profile?.plan === 'free' ? 3 : profile?.plan === 'starter' ? 25 : 999;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
@@ -451,7 +454,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
             <div className="flex items-center space-x-4">
               <div className="text-sm bg-gray-100 px-3 py-1 rounded-full">
                 <span className="text-gray-600">Usage: </span>
-                <span className="font-semibold text-indigo-600">{usageCount}/{usageLimit}</span>
+                <span className="font-semibold text-indigo-600">{usageCount}/{usageLimit === 999 ? '∞' : usageLimit}</span>
                 <span className="text-gray-500"> queries</span>
               </div>
               <div className="text-sm text-gray-600">
@@ -538,7 +541,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
 
                   <button
                     onClick={generateFormula}
-                    disabled={loading || !prompt.trim() || (profile?.plan === 'free' && usageCount >= 3)}
+                    disabled={loading || !prompt.trim() || (usageCount >= usageLimit)}
                     className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-3 font-semibold text-lg shadow-lg"
                   >
                     {loading ? (
@@ -546,7 +549,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                         <span>AI is thinking...</span>
                       </>
-                    ) : profile?.plan === 'free' && usageCount >= 3 ? (
+                    ) : usageCount >= usageLimit ? (
                       <span>Upgrade for More Queries</span>
                     ) : (
                       <>
@@ -578,7 +581,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                       </span>
                     </h3>
                     <div className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                      Query {usageCount}/{usageLimit} • GPT-4 Powered
+                      Query {usageCount}/{usageLimit === 999 ? '∞' : usageLimit} • GPT-4 Powered
                     </div>
                   </div>
                 </div>
@@ -632,7 +635,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                           Generate Another Formula
                         </button>
                       )}
-                      {(profile?.plan === 'free') && (
+                      {(profile?.plan !== 'pro') && (
                         <button 
                           onClick={() => handleCheckout(PRICE_IDS.PRO)}
                           className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium"
@@ -718,6 +721,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                 </div>
                 
                 <p className="text-xs text-center mt-3 opacity-75">vs $75/hour for Excel consultants</p>
+              </div>
+            )}
+
+            {/* Upgrade prompt for starter users */}
+            {profile?.plan === 'starter' && (
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+                <h3 className="text-lg font-bold mb-3">⚡ Unlock Unlimited</h3>
+                <div className="space-y-2 text-sm opacity-90 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Unlimited formulas</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Priority support</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>✓</span>
+                    <span>Chrome extension</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleCheckout(PRICE_IDS.PRO)}
+                  className="w-full bg-white text-indigo-600 font-bold py-3 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Upgrade to Pro - $19.99/mo
+                </button>
+                <p className="text-xs text-center mt-2 opacity-75">No more monthly limits</p>
               </div>
             )}
 
