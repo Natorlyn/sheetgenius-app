@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Brain, Copy, Mail, Lock } from 'lucide-react';
+import { FileSpreadsheet, Brain, Copy, Mail, Lock, Moon, Sun } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getStripe } from '../lib/stripe';
 import type { User } from '@supabase/supabase-js';
@@ -28,6 +28,28 @@ export default function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [isDark, setIsDark] = useState(false);
+
+  // Theme management
+  useEffect(() => {
+    // Check for saved theme preference or system preference
+    const savedTheme = localStorage.getItem('sheetgenius-theme');
+    if (savedTheme === 'dark') {
+      setIsDark(true);
+    } else if (savedTheme === 'light') {
+      setIsDark(false);
+    } else {
+      // Check system preference
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDark(systemPrefersDark);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+    localStorage.setItem('sheetgenius-theme', newTheme ? 'dark' : 'light');
+  };
 
   useEffect(() => {
     // Handle email confirmation on page load
@@ -95,25 +117,33 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className={`min-h-screen flex items-center justify-center transition-colors ${
+        isDark 
+          ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900' 
+          : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+      }`}>
+        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+          isDark ? 'border-indigo-400' : 'border-indigo-600'
+        }`}></div>
       </div>
     );
   }
 
   if (!user) {
-    return <AuthPage authMode={authMode} setAuthMode={setAuthMode} />;
+    return <AuthPage authMode={authMode} setAuthMode={setAuthMode} isDark={isDark} toggleTheme={toggleTheme} />;
   }
 
-  return <Dashboard user={user} profile={profile} setProfile={setProfile} onSignOut={signOut} />;
+  return <Dashboard user={user} profile={profile} setProfile={setProfile} onSignOut={signOut} isDark={isDark} toggleTheme={toggleTheme} />;
 }
 
 interface AuthPageProps {
   authMode: 'signin' | 'signup';
   setAuthMode: (mode: 'signin' | 'signup') => void;
+  isDark: boolean;
+  toggleTheme: () => void;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode, isDark, toggleTheme }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -150,22 +180,47 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className={`min-h-screen transition-colors ${
+      isDark 
+        ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' 
+        : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
+    }`}>
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200">
+      <header className={`backdrop-blur-sm border-b transition-colors ${
+        isDark 
+          ? 'bg-gray-800/80 border-gray-700' 
+          : 'bg-white/80 border-gray-200'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <FileSpreadsheet className="h-8 w-8 text-indigo-600" />
-              <span className="text-xl font-bold text-gray-900">SheetGenius</span>
+              <span className={`text-xl font-bold transition-colors ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>SheetGenius</span>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex items-center space-x-4">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDark 
+                    ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+              
               <button
                 onClick={() => setAuthMode('signin')}
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   authMode === 'signin'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-gray-600 hover:text-gray-900'
+                    : isDark 
+                      ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 Sign In
@@ -175,7 +230,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   authMode === 'signup'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-gray-600 hover:text-gray-900'
+                    : isDark 
+                      ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 Sign Up
@@ -191,20 +248,30 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
           {/* Hero Content */}
           <div>
             <div className="mb-6">
-              <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-indigo-900/50 text-indigo-300 border border-indigo-600' 
+                  : 'bg-indigo-100 text-indigo-800'
+              }`}>
                 Powered by GPT-4 AI
               </span>
             </div>
-            <h1 className="text-5xl font-bold text-gray-900 mb-6">
+            <h1 className={`text-5xl font-bold mb-6 transition-colors ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}>
               Stop Googling<br />
               <span className="text-indigo-600">Excel Formulas</span>
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className={`text-xl mb-8 transition-colors ${
+              isDark ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               AI that turns &quot;calculate growth %&quot; into =(B2-A2)/A2*100 instantly. 
               Save 4+ hours per week on spreadsheet work.
             </p>
             
-            <div className="flex items-center space-x-8 text-sm text-gray-500">
+            <div className={`flex items-center space-x-8 text-sm transition-colors ${
+              isDark ? 'text-gray-400' : 'text-gray-500'
+            }`}>
               <div className="flex items-center space-x-1">
                 <span className="text-2xl">⚡</span>
                 <span>5-second formulas</span>
@@ -221,23 +288,37 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
           </div>
 
           {/* Auth Form */}
-          <div className="bg-white rounded-xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+          <div className={`rounded-xl shadow-xl p-8 transition-colors ${
+            isDark 
+              ? 'bg-gray-800 border border-gray-700' 
+              : 'bg-white'
+          }`}>
+            <h2 className={`text-2xl font-bold mb-6 text-center transition-colors ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}>
               {authMode === 'signin' ? 'Welcome Back' : 'Get Started Free'}
             </h2>
             
             <form onSubmit={handleAuth} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 transition-colors ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 transition-colors ${
+                    isDark ? 'text-gray-400' : 'text-gray-400'
+                  }`} />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
                     placeholder="your@email.com"
                     required
                   />
@@ -245,16 +326,24 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 transition-colors ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 transition-colors ${
+                    isDark ? 'text-gray-400' : 'text-gray-400'
+                  }`} />
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
                     placeholder="••••••••"
                     required
                     minLength={6}
@@ -265,8 +354,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
               {message && (
                 <div className={`p-3 rounded-lg text-sm ${
                   message.includes('Check your email') 
-                    ? 'bg-green-50 text-green-800' 
-                    : 'bg-red-50 text-red-800'
+                    ? isDark 
+                      ? 'bg-green-900/50 text-green-300 border border-green-700' 
+                      : 'bg-green-50 text-green-800'
+                    : isDark 
+                      ? 'bg-red-900/50 text-red-300 border border-red-700'
+                      : 'bg-red-50 text-red-800'
                 }`}>
                   {message}
                 </div>
@@ -281,7 +374,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
               </button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-gray-600">
+            <div className={`mt-6 text-center text-sm transition-colors ${
+              isDark ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               {authMode === 'signin' ? (
                 <>
                   Don&apos;t have an account?{' '}
@@ -306,7 +401,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode }) => {
             </div>
 
             {authMode === 'signup' && (
-              <div className="mt-4 text-xs text-gray-500 text-center">
+              <div className={`mt-4 text-xs text-center transition-colors ${
+                isDark ? 'text-gray-500' : 'text-gray-500'
+              }`}>
                 By creating an account, you agree to our Terms of Service and Privacy Policy.
               </div>
             )}
@@ -322,9 +419,11 @@ interface DashboardProps {
   profile: UserProfile | null;
   setProfile: (profile: UserProfile | null) => void;
   onSignOut: () => void;
+  isDark: boolean;
+  toggleTheme: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSignOut }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSignOut, isDark, toggleTheme }) => {
   const [prompt, setPrompt] = useState<string>('');
   const [result, setResult] = useState<FormulaResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -434,35 +533,69 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
   const usageLimit = profile?.plan === 'free' ? 3 : profile?.plan === 'starter' ? 25 : 999;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <div className={`min-h-screen transition-colors ${
+      isDark 
+        ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900' 
+        : 'bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50'
+    }`}>
       {/* Premium Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+      <header className={`backdrop-blur-sm border-b shadow-sm transition-colors ${
+        isDark 
+          ? 'bg-gray-800/80 border-gray-700' 
+          : 'bg-white/80 border-gray-200'
+      }`}>
         <div className="px-6 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <FileSpreadsheet className="h-8 w-8 text-indigo-600" />
                 <div>
-                  <span className="text-xl font-bold text-gray-900">SheetGenius</span>
+                  <span className={`text-xl font-bold transition-colors ${
+                    isDark ? 'text-white' : 'text-gray-900'
+                  }`}>SheetGenius</span>
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-500">Powered by GPT-4</span>
+                    <span className={`text-sm transition-colors ${
+                      isDark ? 'text-gray-400' : 'text-gray-500'
+                    }`}>Powered by GPT-4</span>
                     <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">AI Active</span>
                   </div>
                 </div>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm bg-gray-100 px-3 py-1 rounded-full">
-                <span className="text-gray-600">Usage: </span>
+              <div className={`text-sm px-3 py-1 rounded-full transition-colors ${
+                isDark ? 'bg-gray-700' : 'bg-gray-100'
+              }`}>
+                <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Usage: </span>
                 <span className="font-semibold text-indigo-600">{usageCount}/{usageLimit === 999 ? '∞' : usageLimit}</span>
-                <span className="text-gray-500"> queries</span>
+                <span className={isDark ? 'text-gray-500' : 'text-gray-500'}> queries</span>
               </div>
-              <div className="text-sm text-gray-600">
+              <div className={`text-sm transition-colors ${
+                isDark ? 'text-gray-400' : 'text-gray-600'
+              }`}>
                 {user.email}
               </div>
+              
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDark 
+                    ? 'text-gray-300 hover:text-white hover:bg-gray-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+              
               <button 
                 onClick={onSignOut}
-                className="text-gray-600 hover:text-gray-900 text-sm"
+                className={`text-sm transition-colors ${
+                  isDark 
+                    ? 'text-gray-400 hover:text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
                 Sign Out
               </button>
@@ -474,40 +607,66 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
       <main className="max-w-6xl mx-auto p-6">
         {/* Premium Stats Bar */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+          <div className={`rounded-lg p-4 shadow-sm border transition-colors ${
+            isDark 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Formulas Generated</p>
-                <p className="text-2xl font-bold text-gray-900">{usageCount}</p>
+                <p className={`text-sm transition-colors ${
+                  isDark ? 'text-gray-400' : 'text-gray-600'
+                }`}>Formulas Generated</p>
+                <p className={`text-2xl font-bold transition-colors ${
+                  isDark ? 'text-white' : 'text-gray-900'
+                }`}>{usageCount}</p>
               </div>
               <Brain className="h-8 w-8 text-indigo-600" />
             </div>
           </div>
           
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+          <div className={`rounded-lg p-4 shadow-sm border transition-colors ${
+            isDark 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Time Saved</p>
+                <p className={`text-sm transition-colors ${
+                  isDark ? 'text-gray-400' : 'text-gray-600'
+                }`}>Time Saved</p>
                 <p className="text-2xl font-bold text-green-600">{usageCount * 6}min</p>
               </div>
               <div className="text-2xl">⚡</div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+          <div className={`rounded-lg p-4 shadow-sm border transition-colors ${
+            isDark 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Accuracy Rate</p>
+                <p className={`text-sm transition-colors ${
+                  isDark ? 'text-gray-400' : 'text-gray-600'
+                }`}>Accuracy Rate</p>
                 <p className="text-2xl font-bold text-blue-600">95%</p>
               </div>
               <div className="text-2xl">🎯</div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+          <div className={`rounded-lg p-4 shadow-sm border transition-colors ${
+            isDark 
+              ? 'bg-gray-800 border-gray-700' 
+              : 'bg-white border-gray-200'
+          }`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Money Saved</p>
+                <p className={`text-sm transition-colors ${
+                  isDark ? 'text-gray-400' : 'text-gray-600'
+                }`}>Money Saved</p>
                 <p className="text-2xl font-bold text-green-600">${usageCount * 15}</p>
               </div>
               <div className="text-2xl">💰</div>
@@ -518,7 +677,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Formula Generator - Premium */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+            <div className={`rounded-xl shadow-lg border overflow-hidden transition-colors ${
+              isDark 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-white border-gray-200'
+            }`}>
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
                 <h1 className="text-2xl font-bold mb-2">🧠 AI Formula Generator</h1>
                 <p className="opacity-90">Describe your calculation in plain English, get perfect Excel formulas instantly</p>
@@ -527,14 +690,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
               <div className="p-6">
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className={`block text-sm font-medium mb-3 transition-colors ${
+                      isDark ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
                       What do you want to calculate?
                     </label>
                     <textarea
                       value={prompt}
                       onChange={handleInputChange}
                       placeholder="Try: 'calculate the compound interest on a $10,000 investment at 5% for 3 years' or 'find the percentage change between two numbers'"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                        isDark 
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                      }`}
                       rows={4}
                     />
                   </div>
@@ -565,7 +734,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
 
             {/* Premium Result Display */}
             {result && (
-              <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+              <div className={`mt-6 rounded-xl shadow-lg border overflow-hidden transition-colors ${
+                isDark 
+                  ? 'bg-gray-800 border-gray-700' 
+                  : 'bg-white border-gray-200'
+              }`}>
                 <div className={`p-4 text-white ${
                   result.formula.includes('Usage Limit') || result.formula.includes('Error') || result.formula.includes('Network')
                     ? 'bg-gradient-to-r from-red-500 to-orange-500'
@@ -588,9 +761,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                 
                 <div className="p-6 space-y-6">
                   {/* Formula Display */}
-                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 border-2 border-blue-200">
+                  <div className={`rounded-xl p-6 border-2 transition-colors ${
+                    isDark 
+                      ? 'bg-gradient-to-r from-gray-700 to-blue-800 border-blue-600' 
+                      : 'bg-gradient-to-r from-gray-50 to-blue-50 border-blue-200'
+                  }`}>
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-sm font-semibold text-blue-800 uppercase tracking-wide">
+                      <span className={`text-sm font-semibold uppercase tracking-wide transition-colors ${
+                        isDark ? 'text-blue-300' : 'text-blue-800'
+                      }`}>
                         {result.formula.includes('Usage Limit') ? 'Upgrade Message:' :
                          result.formula.includes('Error') || result.formula.includes('Network') ? 'Error Message:' :
                          'Excel/Google Sheets Formula:'}
@@ -602,27 +781,45 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                         </button>
                       )}
                     </div>
-                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
-                      <code className="text-xl font-mono text-gray-900 font-bold">{result.formula}</code>
+                    <div className={`p-4 rounded-lg border-2 transition-colors ${
+                      isDark 
+                        ? 'bg-gray-800 border-gray-600' 
+                        : 'bg-white border-gray-200'
+                    }`}>
+                      <code className={`text-xl font-mono font-bold transition-colors ${
+                        isDark ? 'text-white' : 'text-gray-900'
+                      }`}>{result.formula}</code>
                     </div>
                   </div>
 
                   {/* Explanation */}
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-200">
+                  <div className={`rounded-xl p-6 border-2 transition-colors ${
+                    isDark 
+                      ? 'bg-gradient-to-r from-gray-700 to-purple-800 border-indigo-600' 
+                      : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'
+                  }`}>
                     <div className="flex items-start space-x-3">
                       <div className="bg-indigo-600 text-white p-2 rounded-lg">
                         <span className="text-lg">💡</span>
                       </div>
                       <div>
-                        <span className="text-sm font-semibold text-indigo-800 uppercase tracking-wide">AI Explanation:</span>
-                        <p className="text-indigo-700 mt-2 text-lg leading-relaxed">{result.explanation}</p>
+                        <span className={`text-sm font-semibold uppercase tracking-wide transition-colors ${
+                          isDark ? 'text-indigo-300' : 'text-indigo-800'
+                        }`}>AI Explanation:</span>
+                        <p className={`mt-2 text-lg leading-relaxed transition-colors ${
+                          isDark ? 'text-gray-300' : 'text-indigo-700'
+                        }`}>{result.explanation}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center justify-between pt-4 border-t-2 border-gray-100">
-                    <div className="flex items-center space-x-2 text-gray-600">
+                  <div className={`flex items-center justify-between pt-4 border-t-2 transition-colors ${
+                    isDark ? 'border-gray-700' : 'border-gray-100'
+                  }`}>
+                    <div className={`flex items-center space-x-2 transition-colors ${
+                      isDark ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
                       <span className="text-2xl">🚀</span>
                       <span className="font-medium">Generated with 95% accuracy!</span>
                     </div>
@@ -653,8 +850,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
           {/* Premium Sidebar */}
           <div className="space-y-6">
             {/* Quick Examples */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center space-x-2">
+            <div className={`rounded-xl shadow-lg border p-6 transition-colors ${
+              isDark 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-white border-gray-200'
+            }`}>
+              <h3 className={`text-lg font-bold mb-4 flex items-center space-x-2 transition-colors ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>
                 <span>🎯</span>
                 <span>Try These Examples</span>
               </h3>
@@ -669,7 +872,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
                   <button
                     key={idx}
                     onClick={() => setPrompt(example)}
-                    className="w-full text-left p-3 bg-gradient-to-r from-gray-50 to-indigo-50 rounded-lg hover:from-indigo-50 hover:to-purple-50 transition-all border border-gray-200 hover:border-indigo-300 text-gray-700 hover:text-indigo-700"
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      isDark 
+                        ? 'bg-gradient-to-r from-gray-700 to-indigo-800 hover:from-indigo-700 hover:to-purple-700 border-gray-600 hover:border-indigo-500 text-gray-300 hover:text-white' 
+                        : 'bg-gradient-to-r from-gray-50 to-indigo-50 hover:from-indigo-50 hover:to-purple-50 border-gray-200 hover:border-indigo-300 text-gray-700 hover:text-indigo-700'
+                    }`}
                   >
                     {example}
                   </button>
@@ -753,16 +960,30 @@ const Dashboard: React.FC<DashboardProps> = ({ user, profile, setProfile, onSign
             )}
 
             {/* Social Proof */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">💬 What Users Say</h3>
+            <div className={`rounded-xl shadow-lg border p-6 transition-colors ${
+              isDark 
+                ? 'bg-gray-800 border-gray-700' 
+                : 'bg-white border-gray-200'
+            }`}>
+              <h3 className={`text-lg font-bold mb-4 transition-colors ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>💬 What Users Say</h3>
               <div className="space-y-4">
                 <div className="border-l-4 border-green-500 pl-4">
-                  <p className="text-sm text-gray-700 italic">&quot;Saved me 4 hours this week alone!&quot;</p>
-                  <p className="text-xs text-gray-500 mt-1">- Sarah, Finance Manager</p>
+                  <p className={`text-sm italic transition-colors ${
+                    isDark ? 'text-gray-300' : 'text-gray-700'
+                  }`}>&quot;Saved me 4 hours this week alone!&quot;</p>
+                  <p className={`text-xs mt-1 transition-colors ${
+                    isDark ? 'text-gray-500' : 'text-gray-500'
+                  }`}>- Sarah, Finance Manager</p>
                 </div>
                 <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="text-sm text-gray-700 italic">&quot;Like having an Excel expert on speed dial&quot;</p>
-                  <p className="text-xs text-gray-500 mt-1">- Mike, Operations Director</p>
+                  <p className={`text-sm italic transition-colors ${
+                    isDark ? 'text-gray-300' : 'text-gray-700'
+                  }`}>&quot;Like having an Excel expert on speed dial&quot;</p>
+                  <p className={`text-xs mt-1 transition-colors ${
+                    isDark ? 'text-gray-500' : 'text-gray-500'
+                  }`}>- Mike, Operations Director</p>
                 </div>
               </div>
             </div>
