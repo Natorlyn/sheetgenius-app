@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Brain, Copy, Mail, Lock, Moon, Sun } from 'lucide-react';
+import { FileSpreadsheet, Brain, Copy, Mail, Lock, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getStripe } from '../lib/stripe';
 import type { User } from '@supabase/supabase-js';
@@ -146,6 +146,7 @@ interface AuthPageProps {
 const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode, isDark, toggleTheme }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -336,10 +337,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode, isDark, togg
                     isDark ? 'text-gray-400' : 'text-gray-400'
                   }`} />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
+                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors ${
                       isDark 
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                         : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
@@ -348,6 +349,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ authMode, setAuthMode, isDark, togg
                     required
                     minLength={6}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 transition-colors ${
+                      isDark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
